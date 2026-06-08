@@ -1,403 +1,187 @@
 <div align="center">
-<h1 align="center">MoneyPrinterTurbo 💸</h1>
+<h1 align="center">MPTurboPlus 🎬</h1>
 
 <p align="center">
-  <a href="https://github.com/harry0703/MoneyPrinterTurbo/stargazers"><img src="https://img.shields.io/github/stars/harry0703/MoneyPrinterTurbo.svg?style=for-the-badge" alt="Stargazers"></a>
-  <a href="https://github.com/harry0703/MoneyPrinterTurbo/issues"><img src="https://img.shields.io/github/issues/harry0703/MoneyPrinterTurbo.svg?style=for-the-badge" alt="Issues"></a>
-  <a href="https://github.com/harry0703/MoneyPrinterTurbo/network/members"><img src="https://img.shields.io/github/forks/harry0703/MoneyPrinterTurbo.svg?style=for-the-badge" alt="Forks"></a>
-  <a href="https://github.com/harry0703/MoneyPrinterTurbo/blob/main/LICENSE"><img src="https://img.shields.io/github/license/harry0703/MoneyPrinterTurbo.svg?style=for-the-badge" alt="License"></a>
+  <b>场景级对齐 · 一键启动 · 零幻觉视频生成</b>
 </p>
-<br>
-<h3>简体中文 | <a href="README-en.md">English</a> | <a href="README-ar.md">العربية</a></h3>
-<div align="center">
-  <a href="https://trendshift.io/repositories/8731" target="_blank"><img src="https://trendshift.io/api/badge/repositories/8731" alt="harry0703%2FMoneyPrinterTurbo | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
-</div>
-
-<br>
-只需提供一个视频 <b>主题</b> 或 <b>关键词</b> ，就可以全自动生成视频文案、视频素材、视频字幕、视频背景音乐，然后合成一个高清的短视频。
-<br>
 
 <p align="center">
-  <sub>
-    感谢 <a href="https://aihubmix.com/?aff=CEve">AIHubMix</a> 对本项目的赞助。AIHubMix 深度适配 OpenAI、Claude、Gemini、DeepSeek、智谱、千问等全球顶级最新模型，一站式快速接入 GPT-5.5、deepseek-v4-flash 等 700+ 模型（含多个免费模型），提供企业级生产稳定性保障。
-  </sub>
+  <a href="https://github.com/sapsapshen/MPTurboPlus/blob/main/LICENSE"><img src="https://img.shields.io/github/license/sapsapshen/MPTurboPlus.svg?style=for-the-badge" alt="License"></a>
+  <a href="https://github.com/harry0703/MoneyPrinterTurbo"><img src="https://img.shields.io/badge/upstream-MoneyPrinterTurbo-blue?style=for-the-badge" alt="Upstream"></a>
 </p>
 
-<h4>Web界面</h4>
+<br>
+<h3>简体中文 | <a href="README-en.md">English</a></h3>
 
-![](docs/webui.jpg)
-
-<h4>API界面</h4>
-
-![](docs/api.jpg)
+<br>
+基于 <a href="https://github.com/harry0703/MoneyPrinterTurbo">MoneyPrinterTurbo</a> 的增强分支，<b>修复了"生成视频场景与主题相差甚远"的核心问题</b>，并增加一键启动脚本。
+<br>
 
 </div>
 
-## 功能特性 🎯
+---
 
-- [x] 完整的 **MVC架构**，代码 **结构清晰**，易于维护，支持 `API` 和 `Web界面`
-- [x] 支持视频文案 **AI自动生成**，也可以**自定义文案**
-- [x] 支持多种 **高清视频** 尺寸
-  - [x] 竖屏 9:16，`1080x1920`
-  - [x] 横屏 16:9，`1920x1080`
-- [x] 支持 **批量视频生成**，可以一次生成多个视频，然后选择一个最满意的
-- [x] 支持 **视频片段时长** 设置，方便调节素材切换频率
-- [x] 支持 **中文** 和 **英文** 视频文案
-- [x] 支持 **多种语音** 合成，可 **实时试听** 效果
-- [x] 支持 **字幕生成**，可以调整 `字体`、`位置`、`颜色`、`大小`，同时支持`字幕描边`设置
-- [x] 支持 **背景音乐**，随机或者指定音乐文件，可设置`背景音乐音量`
-- [x] 视频素材来源 **高清**，而且 **无版权**，也可以使用自己的 **本地素材**
-- [x] 支持 **OpenAI**、**AIHubMix**、**Moonshot**、**Azure**、**gpt4free**、**one-api**、**通义千问**、**Google Gemini**、**Ollama**、**DeepSeek**、**MiniMax**、 **文心一言**, **Pollinations**、**ModelScope** 等多种模型接入
+## 为什么选择 MPTurboPlus？
 
-## 视频演示 📺
+**MoneyPrinterTurbo** 是一个非常优秀的全自动短视频生成工具。但在实际使用中，很多用户发现：
 
-### 竖屏 9:16
+> ❌ 主题是"森林徒步"，画面却出现了城市车流
+> ❌ 旁白在讲"海浪拍岸"，视频却在播"办公室键盘"
+> ❌ 5 个全局搜索词无法覆盖多段落脚本的丰富内容
 
-<table>
-<thead>
-<tr>
-<th align="center"><g-emoji class="g-emoji" alias="arrow_forward">▶️</g-emoji> 《如何增加生活的乐趣》</th>
-<th align="center"><g-emoji class="g-emoji" alias="arrow_forward">▶️</g-emoji> 《金钱的作用》<br>更真实的合成声音</th>
-<th align="center"><g-emoji class="g-emoji" alias="arrow_forward">▶️</g-emoji> 《生命的意义是什么》</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td align="center"><video src="https://github.com/harry0703/MoneyPrinterTurbo/assets/4928832/a84d33d5-27a2-4aba-8fd0-9fb2bd91c6a6"></video></td>
-<td align="center"><video src="https://github.com/harry0703/MoneyPrinterTurbo/assets/4928832/af2f3b0b-002e-49fe-b161-18ba91c055e8"></video></td>
-<td align="center"><video src="https://github.com/harry0703/MoneyPrinterTurbo/assets/4928832/112c9564-d52b-4472-99ad-970b75f66476"></video></td>
-</tr>
-</tbody>
-</table>
+**MPTurboPlus** 通过**逐段落场景对齐**彻底解决了这个问题：
 
-### 横屏 16:9
+| | 原版 MoneyPrinterTurbo | MPTurboPlus |
+|---|---|---|
+| 搜索词生成 | 整条脚本 → 5 个全局词 | **每个段落** → 1-3 个可视化搜索词 |
+| 素材下载 | 所有词混在一起搜索 | **逐段落**搜索，追踪归属 |
+| 视频拼接 | 随机 shuffle 填充 | **按段落时间窗口**顺序拼接 |
+| 场景匹配度 | 随机 | **旁白第 N 段 ↔ 画面第 N 段** |
 
-<table>
-<thead>
-<tr>
-<th align="center"><g-emoji class="g-emoji" alias="arrow_forward">▶️</g-emoji>《生命的意义是什么》</th>
-<th align="center"><g-emoji class="g-emoji" alias="arrow_forward">▶️</g-emoji>《为什么要运动》</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td align="center"><video src="https://github.com/harry0703/MoneyPrinterTurbo/assets/4928832/346ebb15-c55f-47a9-a653-114f08bb8073"></video></td>
-<td align="center"><video src="https://github.com/harry0703/MoneyPrinterTurbo/assets/4928832/271f2fae-8283-44a0-8aa0-0ed8f9a6fa87"></video></td>
-</tr>
-</tbody>
-</table>
+---
 
-## 配置要求 📦
+## 核心改进 🔧
 
-- 建议系统：Windows 10 或 MacOS 11.0 以上，或主流 Linux 发行版
-- GPU 不是必需项，但如果你希望本地转录、更快的视频处理或更顺畅的批量生成体验，建议使用带显存的独立显卡
+### 1. 逐段落场景对齐流水线
 
-| 项目 | 最低配置 | 推荐配置        | 理想配置        |
-| ---- | -------- | --------------- | --------------- |
-| CPU  | 4 核     | 6 到 8 核       | 8 核及以上      |
-| RAM  | 4 GB     | 8 GB            | 16 GB 及以上    |
-| GPU  | 非必须   | 4 GB 显存及以上 | 8 GB 显存及以上 |
+```
+用户主题 → LLM 生成可视化脚本(N段)
+              ↓
+         逐段落生成搜索词 ← 新增 `generate_terms_per_paragraph()`
+              ↓
+         逐段落下载素材   ← 新增 `download_videos_scene_aligned()`
+              ↓
+         按时间窗口拼接   ← 新增 `combine_videos_scene_aligned()`
+              ↓
+         画面与旁白精准对齐的短视频
+```
 
-- 如果你主要依赖云端 LLM、云端 TTS 和在线素材源，CPU 与内存比 GPU 更重要
-- 如果你启用 `faster-whisper`、批量生成或更重的本地处理链路，GPU 会明显提升速度
+- **`app/services/llm.py`** — 新增 `generate_terms_per_paragraph()`，每个段落独立生成 1-3 个具象英文搜索词
+- **`app/services/material.py`** — 新增 `download_videos_scene_aligned()`，素材按段落归属，段间不混用
+- **`app/services/video.py`** — 新增 `combine_videos_scene_aligned()`，按音频时长平分时间窗口，每段素材只在其窗口内出现
+- **`app/services/task.py`** — 自动检测多段落场景，无缝切换到对齐流水线
+
+### 2. 增强 Prompt（视觉引导）
+
+- 脚本生成 prompt 增加约束：每个段落必须描述一个**可拍摄的具体视觉场景**
+- 搜索词 prompt 优先**具象名词短语**（`golden retriever puppy playing` 而非 `dog`）
+- 避免抽象概念，确保每个搜索词在 Pexels/Pixabay 上可命中
+
+### 3. 一键启动脚本
+
+| 平台 | 脚本 | 说明 |
+|------|------|------|
+| Windows | `start.bat` | 自动检测 `.venv` / `uv` / 系统 Python，后台启动 API，前台启动 WebUI |
+| Linux / macOS | `start.sh` | 同上，带 trap 清理，Ctrl+C 同时停止两个服务 |
+| 通用 | `start_helper.py` | 纯 stdlib 端口探测，为 bat 脚本提供可靠端口检测 |
+
+启动后终端输出：
+
+```
+======================================
+  API:    http://127.0.0.1:8080
+  Docs:   http://127.0.0.1:8080/docs
+  WebUI:  http://127.0.0.1:8501
+======================================
+```
+
+### 4. 向后兼容
+
+- `paragraph_number=1` 时走原版路径，行为完全不变
+- 所有新增函数与旧函数并存，旧 API 调用不受影响
+- 配置文件和 WebUI 参数无变化
+
+---
 
 ## 快速开始 🚀
 
-### 推荐使用方式
-
-- Windows 用户：优先使用一键启动包，适合快速体验
-- MacOS / Linux 用户：优先使用 `uv sync --frozen` 进行本地部署
-- 想要隔离运行环境：优先使用 Docker 部署
-
-### 在 Google Colab 中运行
-
-免去本地环境配置，点击直接在 Google Colab 中快速体验 MoneyPrinterTurbo
-
-[![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/harry0703/MoneyPrinterTurbo/blob/main/docs/MoneyPrinterTurbo.ipynb)
-
-### Windows一键启动包
-
-下载一键启动包，解压直接使用（路径不要有 **中文**、**特殊字符**、**空格**）
-当前提供的安装包仍是 `v1.2.6` 的旧打包版本，建议下载后先执行 `update.bat` 更新到最新代码。
-
-- 百度网盘（v1.2.6）: https://pan.baidu.com/s/1wg0UaIyXpO3SqIpaq790SQ?pwd=sbqx 提取码: sbqx
-- Google Drive (v1.2.6): https://drive.google.com/file/d/1HsbzfT7XunkrCrHw5ncUjFX8XX4zAuUh/view?usp=sharing
-
-下载后，建议先**双击执行** `update.bat` 更新到**最新代码**，然后双击 `start.bat` 启动
-
-启动后，会自动打开浏览器（如果打开是空白，建议换成 **Chrome** 或者 **Edge** 打开）
-
-## 安装部署 📥
-
 ### 前提条件
 
-- 尽量不要使用 **中文路径**，避免出现一些无法预料的问题
-- 请确保你的 **网络** 是正常的，VPN需要打开`全局流量`模式
+- Python 3.11（推荐通过 `uv` 管理）
+- 网络通畅（需访问 Pexels/Pixabay API 和 LLM API）
 
-#### ① 克隆代码
-
-```shell
-git clone https://github.com/harry0703/MoneyPrinterTurbo.git
-```
-
-#### ② 修改配置文件（可选，建议启动后也可以在 WebUI 里面配置）
-
-- 将 `config.example.toml` 文件复制一份，命名为 `config.toml`
-- 按照 `config.toml` 文件中的说明，配置好 `pexels_api_keys` 和 `llm_provider`，并根据 llm_provider 对应的服务商，配置相关的
-  API Key
-- 如果希望使用推荐的大模型平台，也可以将 `llm_provider` 设置为 `aihubmix`，并填写对应的 API Key。
-
-### Docker部署 🐳
-
-#### ① 启动Docker
-
-如果未安装 Docker，请先安装 https://www.docker.com/products/docker-desktop/
-
-如果是Windows系统，请参考微软的文档：
-
-1. https://learn.microsoft.com/zh-cn/windows/wsl/install
-2. https://learn.microsoft.com/zh-cn/windows/wsl/tutorials/wsl-containers
+### 安装
 
 ```shell
-cd MoneyPrinterTurbo
-docker-compose up
-```
-
-> 注意：最新版的docker安装时会自动以插件的形式安装docker compose，启动命令调整为docker compose up
-
-#### ② 访问Web界面
-
-打开浏览器，访问 http://127.0.0.1:8501
-
-#### ③ 访问API文档
-
-打开浏览器，访问 http://127.0.0.1:8080/docs 或者 http://127.0.0.1:8080/redoc
-
-### 手动部署 📦
-
-> 视频教程
-
-- 完整的使用演示：https://v.douyin.com/iFhnwsKY/
-- 如何在Windows上部署：https://v.douyin.com/iFyjoW3M
-
-#### ① 创建虚拟环境
-
-推荐使用 [uv](https://docs.astral.sh/uv/) 管理 Python 环境和依赖，默认使用 Python `3.11`
-
-```shell
-git clone https://github.com/harry0703/MoneyPrinterTurbo.git
-cd MoneyPrinterTurbo
+git clone https://github.com/sapsapshen/MPTurboPlus.git
+cd MPTurboPlus
 uv python install 3.11
 uv sync --frozen
 ```
 
-如果你暂时不使用 `uv`，也可以继续使用 `venv + pip`
+将 `config.example.toml` 复制为 `config.toml`，填入你的 API Key：
 
+- `pexels_api_keys` / `pixabay_api_keys`（素材搜索）
+- `llm_provider` + 对应 API Key（脚本和搜索词生成）
+
+### 启动
+
+**Windows（推荐）**：
+双击 `start.bat`
+
+**Linux / macOS**：
 ```shell
-python3.11 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
+chmod +x start.sh && ./start.sh
 ```
 
-说明：
-
-- `pyproject.toml` 是主依赖定义文件
-- `uv.lock` 是锁文件，建议默认执行 `uv sync --frozen`
-- `requirements.txt` 仅保留给旧的 `pip` 安装方式兼容使用
-
-#### ② 启动Web界面 🌐
-
-注意需要到 MoneyPrinterTurbo 项目 `根目录` 下执行以下命令
-
-###### Windows
-
-```powershell
-.\webui.bat
-```
-
-在 CMD 中也可以执行 `webui.bat`。
-`webui.bat` 会优先使用项目 `.venv` 或一键包内置 Python；如果没有找到项目 Python，但已安装 `uv`，会自动切换为 `uv run streamlit`。
-如需允许局域网内其他设备访问 WebUI，可以先执行 `set MPT_WEBUI_HOST=0.0.0.0`，再运行 `webui.bat`。
-
-###### MacOS or Linux
-
+**手动启动**：
 ```shell
-uv run streamlit run ./webui/Main.py --browser.gatherUsageStats=False
-```
-
-如果你已经手动激活了虚拟环境，也可以直接执行：
-
-```shell
-sh webui.sh
-```
-
-启动后，会自动打开浏览器（如果打开是空白，建议换成 **Chrome** 或者 **Edge** 打开）
-
-#### ③ 启动API服务 🚀
-
-```shell
+# 终端 1：启动 API
 uv run python main.py
+
+# 终端 2：启动 WebUI
+uv run streamlit run webui/Main.py --server.address=127.0.0.1 --server.enableCORS=True
 ```
 
-如果你已经手动激活了虚拟环境，也可以直接执行：
+### 使用建议
 
-```shell
-python main.py
-```
+- 将 `paragraph_number` 设为 **3 以上**，体验场景对齐效果最佳
+- 主题尽量具体（如"黄山云海日出"而非"风景"）
+- `video_clip_duration` 建议 3-5 秒，避免单段过长失去节奏
 
-## 特别感谢 🙏
+---
 
-由于该项目的 **部署** 和 **使用**，对于一些小白用户来说，还是 **有一定的门槛**，在此特别感谢
-**录咖（AI智能 多媒体服务平台）** 网站基于该项目，提供的免费`AI视频生成器`服务，可以不用部署，直接在线使用，非常方便。
+## 配置要求 📦
 
-- 中文版：https://reccloud.cn
-- 英文版：https://reccloud.com
+| 项目 | 最低配置 | 推荐配置 |
+| ---- | -------- | -------- |
+| CPU  | 4 核     | 8 核     |
+| RAM  | 4 GB     | 8 GB     |
+| GPU  | 非必须   | 4 GB+    |
 
-![](docs/reccloud.cn.jpg)
+- 依赖云端 LLM + 在线素材时，CPU 和网络比 GPU 更重要
+- 启用 `faster-whisper` 本地转录时建议 GPU
 
-## 感谢赞助 🙏
+---
 
-感谢佐糖 https://picwish.cn 对该项目的支持和赞助，使得该项目能够持续的更新和维护。
+## 功能特性 🎯
 
-佐糖专注于**图像处理领域**，提供丰富的**图像处理工具**，将复杂操作极致简化，真正实现让图像处理更简单。
+保留 MoneyPrinterTurbo 全部功能：
 
-![picwish.jpg](docs/picwish.jpg)
+- 完整 MVC 架构，支持 API + WebUI
+- AI 自动生成文案或自定义文案
+- 竖屏 9:16 / 横屏 16:9 高清视频
+- 批量生成 + 多语言 + 多种 TTS 语音
+- 字幕生成（字体/位置/颜色/大小/描边）
+- 背景音乐（随机或指定）
+- 无版权素材 + 本地素材
+- 支持 OpenAI / DeepSeek / Gemini / Qwen / Ollama / Azure 等 15+ LLM 提供商
+- Docker 部署
 
-## 语音合成 🗣
+**MPTurboPlus 新增**：
 
-所有支持的声音列表，可以查看：[声音列表](./docs/voice-list.txt)
+- 逐段落场景对齐视频生成
+- 增强视觉 Prompt 系统
+- 一键启动脚本（Windows + Linux/macOS）
 
-默认 TTS 服务是 **Edge TTS**（免费，不需要 API Key）。在 WebUI 中它显示为 **“Azure TTS V1”**，两者指的是同一个免费服务。你可以在 `config.toml` 中设置 `voice_name`，也可以直接在 WebUI 的声音下拉框中选择。
+---
 
-> **说明：** WebUI 中的 “Azure TTS V1”（Edge TTS，免费）和 “Azure TTS V2”（付费 Azure Speech SDK）是两个不同选项，只有 V2 需要配置 Azure API Key。
+## 上游致谢 🙏
 
-如果你希望使用质量更高的 **Azure TTS V2** 声音，需要在 `config.toml` 中配置 Azure Speech 凭据：
+本项目基于 [MoneyPrinterTurbo](https://github.com/harry0703/MoneyPrinterTurbo) 构建，感谢原作者 [@harry0703](https://github.com/harry0703) 和所有贡献者的出色工作。
 
-```toml
-[azure]
-speech_key = "your-azure-speech-key"
-speech_region = "eastus"
-```
-
-Azure TTS V2 需要开通 [Azure Speech Services](https://portal.azure.com/) 订阅。v1.1.2 新增的 9 种 Azure 声音整体会比 Edge TTS 更自然。
-
-## 字幕生成 📜
-
-当前支持2种字幕生成方式：
-
-- **edge**: 使用 Edge TTS 返回的时间戳对齐字幕。速度快，不需要 GPU，普通机器也可以运行；但复杂句子的时间戳偶尔可能不够准确。
-- **whisper**: 使用本地 `faster-whisper` 转写生成后的音频，并生成更细粒度的时间戳。速度较慢（CPU 上通常需要几秒到约 1 分钟，取决于模型大小），需要下载模型（`large-v3-turbo` 约 250 MB，`large-v3` 约 3 GB），但不依赖 TTS provider 的时间戳，字幕准确性通常更好。
-
-可以修改 `config.toml` 配置文件中的 `subtitle_provider` 进行切换
-
-建议使用 `edge` 模式，如果生成的字幕质量不好，再切换到 `whisper` 模式
-
-> 注意：
-
-1. whisper 模式下需要到 HuggingFace 下载一个模型文件，大约 3GB 左右，请确保网络通畅
-2. 如果留空，表示不生成字幕。
-
-> 由于国内无法访问 HuggingFace，可以使用以下方法下载 `whisper-large-v3` 的模型文件
-
-下载地址：
-
-- 百度网盘: https://pan.baidu.com/s/11h3Q6tsDtjQKTjUu3sc5cA?pwd=xjs9
-- 夸克网盘：https://pan.quark.cn/s/3ee3d991d64b
-
-模型下载后解压，整个目录放到 `.\MoneyPrinterTurbo\models` 里面，
-最终的文件路径应该是这样: `.\MoneyPrinterTurbo\models\whisper-large-v3`
-
-```
-MoneyPrinterTurbo
-  ├─models
-  │   └─whisper-large-v3
-  │          config.json
-  │          model.bin
-  │          preprocessor_config.json
-  │          tokenizer.json
-  │          vocabulary.json
-```
-
-## 背景音乐 🎵
-
-用于视频的背景音乐，位于项目的 `resource/songs` 目录下。
-
-> 当前项目里面放了一些默认的音乐，来自于 YouTube 视频，如有侵权，请删除。
-
-## 字幕字体 🅰
-
-用于视频字幕的渲染，位于项目的 `resource/fonts` 目录下，你也可以放进去自己的字体。
-
-## 常见问题 🤔
-
-### ❓RuntimeError: No ffmpeg exe could be found
-
-通常情况下，ffmpeg 会被自动下载，并且会被自动检测到。
-但是如果你的环境有问题，无法自动下载，可能会遇到如下错误：
-
-```
-RuntimeError: No ffmpeg exe could be found.
-Install ffmpeg on your system, or set the IMAGEIO_FFMPEG_EXE environment variable.
-```
-
-此时你可以从 https://www.gyan.dev/ffmpeg/builds/ 下载ffmpeg，解压后，设置 `ffmpeg_path` 为你的实际安装路径即可。
-
-```toml
-[app]
-# 请根据你的实际路径设置，注意 Windows 路径分隔符为 \\
-ffmpeg_path = "C:\\Users\\harry\\Downloads\\ffmpeg.exe"
-```
-
-### ❓ImageMagick 相关错误
-
-> **当前版本已经不需要 ImageMagick。**
->
-> 项目升级到 **MoviePy 2.x** 后，字幕渲染已经改为使用 **Pillow**，不再依赖 ImageMagick。如果你仍然看到 ImageMagick 相关错误，通常说明运行的是旧版本代码。请先执行 `git pull` 更新代码，Windows 用户也可以运行 `update.bat` 更新。
-
-### ❓OSError: [Errno 24] Too many open files
-
-这个问题是由于系统打开文件数限制导致的，可以通过修改系统的文件打开数限制来解决。
-
-查看当前限制
-
-```shell
-ulimit -n
-```
-
-如果过低，可以调高一些，比如
-
-```shell
-ulimit -n 10240
-```
-
-### ❓Whisper 模型下载失败，出现如下错误
-
-```
-LocalEntryNotFoundError: Cannot find an appropriate cached snapshot folder for the specified revision on the local disk and
-outgoing traffic has been disabled.
-To enable repo look-ups and downloads online, pass 'local_files_only=False' as input.
-```
-
-或者
-
-```
-An error occurred while synchronizing the model Systran/faster-whisper-large-v3 from the Hugging Face Hub:
-An error happened while trying to locate the files on the Hub and we cannot find the appropriate snapshot folder for the
-specified revision on the local disk. Please check your internet connection and try again.
-Trying to load the model directly from the local cache, if it exists.
-```
-
-解决方法：[点击查看如何从网盘手动下载模型](#%E5%AD%97%E5%B9%95%E7%94%9F%E6%88%90-)
-
-## 反馈建议 📢
-
-- 可以提交 [issue](https://github.com/harry0703/MoneyPrinterTurbo/issues)
-  或者 [pull request](https://github.com/harry0703/MoneyPrinterTurbo/pulls)。
+---
 
 ## 许可证 📝
 
-点击查看 [`LICENSE`](LICENSE) 文件
-
-## Star History
-
-[![Star History Chart](https://api.star-history.com/svg?repos=harry0703/MoneyPrinterTurbo&type=Date)](https://star-history.com/#harry0703/MoneyPrinterTurbo&Date)
+MIT — 详见 [`LICENSE`](LICENSE) 文件
