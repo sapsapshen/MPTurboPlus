@@ -39,9 +39,31 @@ def generate_terms(task_id, params, video_script):
     logger.info("\n\n## generating video terms")
     video_terms = params.video_terms
     if not video_terms:
-        video_terms = llm.generate_terms(
-            video_subject=params.video_subject, video_script=video_script, amount=5
-        )
+        # 多段落时使用逐段落搜索词生成，大幅提升场景匹配度
+        if params.paragraph_number > 1:
+            paragraphs = [
+                p.strip() for p in video_script.split("\n\n") if p.strip()
+            ]
+            if len(paragraphs) > 1:
+                logger.info(
+                    f"using per-paragraph terms for {len(paragraphs)} paragraphs"
+                )
+                video_terms = llm.generate_terms_per_paragraph(
+                    paragraphs=paragraphs,
+                    video_subject=params.video_subject,
+                )
+            else:
+                video_terms = llm.generate_terms(
+                    video_subject=params.video_subject,
+                    video_script=video_script,
+                    amount=5,
+                )
+        else:
+            video_terms = llm.generate_terms(
+                video_subject=params.video_subject,
+                video_script=video_script,
+                amount=5,
+            )
     else:
         if isinstance(video_terms, str):
             video_terms = [term.strip() for term in re.split(r"[,，]", video_terms)]
@@ -178,15 +200,43 @@ def get_video_materials(task_id, params, video_terms, audio_duration):
         return [material_info.url for material_info in materials]
     else:
         logger.info(f"\n\n## downloading videos from {params.video_source}")
-        downloaded_videos = material.download_videos(
-            task_id=task_id,
-            search_terms=video_terms,
-            source=params.video_source,
-            video_aspect=params.video_aspect,
-            video_contact_mode=params.video_concat_mode,
-            audio_duration=audio_duration * params.video_count,
-            max_clip_duration=params.video_clip_duration,
+
+        # 检测是否为逐段落搜索词格式（List[List[str]]）
+        is_per_paragraph = (
+            isinstance(video_terms, list)
+            and len(video_terms) > 0
+            and isinstance(video_terms[0], list)
         )
+
+        if is_per_paragraph:
+            logger.info(
+                f"per-paragraph terms detected: {len(video_terms)} paragraphs"
+            )
+            # 提取段落文本，用于素材下载时的搜索词匹配度审核
+            paragraphs = [
+                p.strip() for p in params.video_script.split("\n\n") if p.strip()
+            ]
+            downloaded_videos = material.download_videos_scene_aligned(
+                task_id=task_id,
+                search_terms_by_paragraph=video_terms,
+                source=params.video_source,
+                video_aspect=params.video_aspect,
+                video_contact_mode=params.video_concat_mode,
+                audio_duration=audio_duration * params.video_count,
+                max_clip_duration=params.video_clip_duration,
+                paragraphs=paragraphs,
+            )
+        else:
+            downloaded_videos = material.download_videos(
+                task_id=task_id,
+                search_terms=video_terms,
+                source=params.video_source,
+                video_aspect=params.video_aspect,
+                video_contact_mode=params.video_concat_mode,
+                audio_duration=audio_duration * params.video_count,
+                max_clip_duration=params.video_clip_duration,
+            )
+
         if not downloaded_videos:
             sm.state.update_task(task_id, state=const.TASK_STATE_FAILED)
             logger.error(
@@ -206,6 +256,13 @@ def generate_final_videos(
     )
     video_transition_mode = params.video_transition_mode
 
+    # 检测是否为逐段落素材格式（List[List[str]]）
+    is_scene_aligned = (
+        isinstance(downloaded_videos, list)
+        and len(downloaded_videos) > 0
+        and isinstance(downloaded_videos[0], list)
+    )
+
     _progress = 50
     for i in range(params.video_count):
         index = i + 1
@@ -213,16 +270,29 @@ def generate_final_videos(
             utils.task_dir(task_id), f"combined-{index}.mp4"
         )
         logger.info(f"\n\n## combining video: {index} => {combined_video_path}")
-        video.combine_videos(
-            combined_video_path=combined_video_path,
-            video_paths=downloaded_videos,
-            audio_file=audio_file,
-            video_aspect=params.video_aspect,
-            video_concat_mode=video_concat_mode,
-            video_transition_mode=video_transition_mode,
-            max_clip_duration=params.video_clip_duration,
-            threads=params.n_threads,
-        )
+
+        if is_scene_aligned:
+            video.combine_videos_scene_aligned(
+                combined_video_path=combined_video_path,
+                video_paths_by_scene=downloaded_videos,
+                audio_file=audio_file,
+                video_aspect=params.video_aspect,
+                video_concat_mode=video_concat_mode,
+                video_transition_mode=video_transition_mode,
+                max_clip_duration=params.video_clip_duration,
+                threads=params.n_threads,
+            )
+        else:
+            video.combine_videos(
+                combined_video_path=combined_video_path,
+                video_paths=downloaded_videos,
+                audio_file=audio_file,
+                video_aspect=params.video_aspect,
+                video_concat_mode=video_concat_mode,
+                video_transition_mode=video_transition_mode,
+                max_clip_duration=params.video_clip_duration,
+                threads=params.n_threads,
+            )
 
         _progress += 50 / params.video_count / 2
         sm.state.update_task(task_id, progress=_progress)

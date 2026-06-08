@@ -25,6 +25,11 @@ DEFAULT_SCRIPT_SYSTEM_PROMPT = """
 
 ## Goals:
 Generate a script for a video, depending on the subject of the video.
+Each paragraph should describe ONE specific, concrete visual scene — something
+that could be filmed with a camera and found on stock footage platforms.
+Think in terms of camera shots: what would the viewer SEE on screen during
+this paragraph? Use vivid, descriptive language with tangible nouns (people,
+objects, locations, actions, natural scenery) rather than abstract concepts.
 
 ## Constrains:
 1. the script is to be returned as a string with the specified number of paragraphs.
@@ -35,6 +40,7 @@ Generate a script for a video, depending on the subject of the video.
 6. do not include "voiceover", "narrator" or similar indicators of what should be spoken at the beginning of each paragraph or line.
 7. you must not mention the prompt, or anything about the script itself. also, never talk about the amount of paragraphs or lines. just write the script.
 8. respond in the same language as the video subject.
+9. each paragraph must describe a distinct visual scene with concrete, filmable imagery — avoid pure narration, philosophy, or abstract discussion without visual anchor.
 """.strip()
 
 
@@ -698,16 +704,21 @@ def generate_terms(video_subject: str, video_script: str, amount: int = 5) -> Li
 
 ## Goals:
 Generate {amount} search terms for stock videos, depending on the subject of a video.
+Each search term must represent a concrete, visual scene that can be found on
+Pexels or Pixabay. Think like a stock footage search: what would a videographer
+type to find footage matching this script?
 
 ## Constrains:
 1. the search terms are to be returned as a json-array of strings.
 2. each search term should consist of 1-3 words, always add the main subject of the video.
 3. you must only return the json-array of strings. you must not return anything else. you must not return the script.
-4. the search terms must be related to the subject of the video.
+4. the search terms must be related to the subject of the video AND to specific visual scenes in the script.
 5. reply with english search terms only.
+6. prefer concrete, visual noun phrases ("sunset over ocean", "busy city street", "person typing on laptop") over abstract concepts ("technology", "happiness", "economy").
+7. avoid single abstract words — combine them with visual context when possible.
 
 ## Output Example:
-["search term 1", "search term 2", "search term 3","search term 4","search term 5"]
+["person working on laptop", "modern office desk", "city skyline morning","typing keyboard closeup","business meeting hands"]
 
 ## Context:
 ### Video Subject
@@ -756,6 +767,414 @@ Please note that you must use English for generating video search terms; Chinese
 
     logger.success(f"completed: \n{search_terms}")
     return search_terms
+
+
+# =============================================================================
+# Per-paragraph search terms generation
+#
+# 核心改进：不再为整条脚本生成 5 个全局搜索词，而是将脚本按段落拆分，
+# 为每个段落独立生成 1-3 个可视化的、可在 Pexels/Pixabay 上搜到的具体词。
+# 这使得视频素材与旁白内容逐段对齐，大幅降低"场景和主题相差甚远"的问题。
+# =============================================================================
+
+# 每段生成的搜索词数量上限
+MAX_TERMS_PER_PARAGRAPH = 3
+# 最大段落数（防止 LLM 调用次数失控）
+MAX_PARAGRAPHS_FOR_TERMS = 8
+
+PER_PARAGRAPH_TERMS_PROMPT = """# Role: Video Scene Search Terms Generator
+
+## Goal
+For the given paragraph of a video script, generate {max_terms} specific, 
+concrete search terms that can be used on Pexels/Pixabay to find matching 
+stock video footage.
+
+## Constraints
+1. Return ONLY a JSON array of strings. No markdown, no code fences, no commentary.
+2. Each search term must be a concrete, visual noun phrase (person, object, 
+   location, action, scenery) that EXISTS on stock footage platforms.
+3. Each term must consist of 1-4 English words.
+4. The terms must DIRECTLY relate to the visual scene described in the paragraph.
+5. Prefer specific over generic: "golden retriever puppy playing" over "dog".
+6. Reply with English search terms only.
+7. Each term should stand alone as a stock video search query.
+
+## Output Example
+["sunlit forest path walking", "morning dew on leaves", "hiker backpack trail"]
+
+## Context
+### Video Subject
+{video_subject}
+
+### Paragraph
+{paragraph}""".strip()
+
+
+def _build_per_paragraph_terms_prompt(
+    paragraph: str,
+    video_subject: str,
+    max_terms: int = MAX_TERMS_PER_PARAGRAPH,
+) -> str:
+    return PER_PARAGRAPH_TERMS_PROMPT.format(
+        max_terms=max_terms,
+        video_subject=video_subject,
+        paragraph=paragraph.strip(),
+    )
+
+
+def generate_terms_per_paragraph(
+    paragraphs: List[str],
+    video_subject: str = "",
+) -> List[List[str]]:
+    """
+    为每个段落独立生成可视化搜索词。
+
+    Args:
+        paragraphs: 脚本段落列表（按 \\n\\n 拆分后的结果）
+        video_subject: 视频主题，用于额外上下文
+
+    Returns:
+        List[List[str]]: 每个段落对应的搜索词列表。
+        例如 [["forest sunlight", "hiking trail"], ["ocean waves", "beach sunset"]]
+    """
+    if not paragraphs:
+        return []
+
+    # 保护：段落数过多时只处理前 N 段，避免 LLM 调用次数和 API 成本失控
+    effective_paragraphs = paragraphs[:MAX_PARAGRAPHS_FOR_TERMS]
+    if len(paragraphs) > MAX_PARAGRAPHS_FOR_TERMS:
+        logger.warning(
+            f"too many paragraphs ({len(paragraphs)}), only processing "
+            f"first {MAX_PARAGRAPHS_FOR_TERMS}"
+        )
+
+    all_terms: List[List[str]] = []
+
+    for i, paragraph in enumerate(effective_paragraphs):
+        paragraph = paragraph.strip()
+        if not paragraph:
+            all_terms.append([])
+            continue
+
+        prompt = _build_per_paragraph_terms_prompt(
+            paragraph=paragraph,
+            video_subject=video_subject,
+        )
+        logger.info(
+            f"generating terms for paragraph {i+1}/{len(effective_paragraphs)}: "
+            f"{paragraph[:80]}..."
+        )
+
+        terms = []
+        response = ""
+        for attempt in range(_max_retries):
+            try:
+                response = _generate_response(prompt)
+                if isinstance(response, str) and "Error: " in response:
+                    logger.error(
+                        f"failed to generate terms for paragraph {i+1}: {response}"
+                    )
+                    break
+
+                # 尝试完整 JSON 解析
+                try:
+                    parsed = json.loads(response)
+                except json.JSONDecodeError:
+                    # 正则提取 JSON 数组
+                    match = re.search(r"\[.*\]", response, re.DOTALL)
+                    if match:
+                        parsed = json.loads(match.group())
+                    else:
+                        raise
+
+                if isinstance(parsed, list) and all(
+                    isinstance(t, str) for t in parsed
+                ):
+                    terms = [t.strip() for t in parsed if t.strip()]
+                    if terms:
+                        break
+                    else:
+                        logger.warning(
+                            f"empty terms for paragraph {i+1}, retrying..."
+                        )
+                else:
+                    logger.warning(
+                        f"invalid terms format for paragraph {i+1}, retrying..."
+                    )
+
+            except Exception as e:
+                logger.warning(
+                    f"failed to parse terms for paragraph {i+1}: {str(e)}"
+                )
+                if response:
+                    # 尝试后备正则匹配
+                    match = re.search(r"\[.*\]", response, re.DOTALL)
+                    if match:
+                        try:
+                            parsed = json.loads(match.group())
+                            if isinstance(parsed, list):
+                                terms = [str(t).strip() for t in parsed if str(t).strip()]
+                                if terms:
+                                    break
+                        except Exception:
+                            pass
+
+            if attempt < _max_retries - 1:
+                logger.warning(
+                    f"retrying terms for paragraph {i+1}... ({attempt + 1})"
+                )
+
+        if not terms and video_subject:
+            # 段落级别的后后备：使用主题作为兜底搜索词
+            logger.warning(
+                f"all attempts failed for paragraph {i+1}, "
+                f"fallback to video subject: '{video_subject}'"
+            )
+            terms = [video_subject.strip()]
+
+        all_terms.append(terms)
+        logger.info(f"paragraph {i+1} terms: {terms}")
+
+    logger.success(f"per-paragraph terms completed: {len(all_terms)} paragraphs")
+    return all_terms
+
+
+# =============================================================================
+# Scene-term match evaluation & refinement
+#
+# 在素材下载阶段，对每个段落的搜索词做匹配度审核。如果 LLM 判定搜索词与
+# 段落画面的相关性不足，自动重新生成更精准的搜索词并触发重新下载，避免
+# 最终视频中出现与旁白内容无关的画面片段。
+# =============================================================================
+
+# 搜索词与段落内容匹配度的最低阈值（1-10 分），低于此值触发重生成
+MIN_TERM_RELEVANCE_SCORE = 5
+# 单段落最多重新生成几次搜索词，防止 LLM 调用失控
+MAX_SCENE_REGENERATION_RETRIES = 2
+
+EVALUATE_TERMS_PROMPT = """# Role: Stock Video Search Quality Evaluator
+
+## Goal
+Rate how well the given search terms can find stock video footage that matches 
+the visual scene described in the paragraph.
+
+## Scoring Criteria
+1-3: Terms are completely unrelated to the paragraph's visual content, or 
+     consist only of abstract concepts that cannot be filmed (e.g. "economy", 
+     "happiness", "future").
+4-6: Terms have some weak connection, but are too generic to reliably find 
+     footage matching this specific scene (e.g. "city" for a paragraph about 
+     "a rainy alley in old Shanghai").
+7-8: Terms are relevant and concrete enough to find reasonable footage, 
+     though may not capture all nuances.
+9-10: Terms are highly specific, visually concrete, and directly correspond 
+     to the key visual elements in the paragraph.
+
+## Output
+Return ONLY a single integer score (1-10). No commentary, no explanation.
+
+## Context
+### Paragraph
+{paragraph}
+
+### Search Terms
+{search_terms}
+
+Score (1-10):"""
+
+REFINE_TERMS_PROMPT = """# Role: Video Scene Search Terms Refiner
+
+## Goal
+The previous search terms for this video paragraph received a low quality 
+score. Generate {max_terms} NEW, better search terms that more accurately 
+capture the visual scene described in the paragraph.
+
+## Why Previous Terms Scored Low
+{score_reason}
+
+## Constraints
+1. Return ONLY a JSON array of strings. No markdown, no code fences, no commentary.
+2. Each search term must be a concrete, visual noun phrase (person, object, 
+   location, action, scenery) that EXISTS on stock footage platforms.
+3. Each term must consist of 1-4 English words.
+4. The terms must DIFFER from the previous ones — focus on different visual 
+   angles, more specific details, or alternative wordings.
+5. Prefer specific over generic: "golden retriever puppy playing" over "dog".
+6. Reply with English search terms only.
+
+## Output Example
+["sunlit forest path walking", "morning dew on leaves", "hiker backpack trail"]
+
+## Context
+### Video Subject
+{video_subject}
+
+### Paragraph
+{paragraph}
+
+### Previous Terms (scored low)
+{previous_terms}"""
+
+
+def evaluate_terms_relevance(
+    paragraph: str,
+    search_terms: List[str],
+) -> int:
+    """
+    让 LLM 评估搜索词与段落画面内容的匹配度，返回 1-10 分。
+
+    如果 LLM 调用失败，默认返回 10（跳过审核，不阻塞生成流程）。
+
+    Args:
+        paragraph: 脚本段落文本
+        search_terms: 该段落对应的搜索词列表
+
+    Returns:
+        int: 1-10 的匹配度评分
+    """
+    if not search_terms or not paragraph.strip():
+        return 10  # 空段落无需审核
+
+    prompt = EVALUATE_TERMS_PROMPT.format(
+        paragraph=paragraph.strip(),
+        search_terms=", ".join(search_terms),
+    )
+
+    logger.info(
+        f"evaluating terms relevance for paragraph: "
+        f"{paragraph[:60]}... | terms: {search_terms}"
+    )
+
+    try:
+        response = _generate_response(prompt)
+        if not response or not isinstance(response, str):
+            logger.warning("evaluate_terms_relevance: empty response, defaulting to 10")
+            return 10
+
+        # 提取第一个整数
+        match = re.search(r"\b(\d+)\b", response)
+        if match:
+            score = int(match.group(1))
+            score = max(1, min(10, score))  # clamp to 1-10
+            logger.info(f"terms relevance score: {score}/10")
+            return score
+
+        logger.warning(
+            f"evaluate_terms_relevance: no score found in response, "
+            f"defaulting to 10. response: {response[:100]}"
+        )
+        return 10
+
+    except Exception as e:
+        logger.warning(
+            f"evaluate_terms_relevance: evaluation failed ({str(e)}), "
+            f"defaulting to 10 to not block generation"
+        )
+        return 10
+
+
+def refine_search_terms(
+    paragraph: str,
+    video_subject: str,
+    previous_terms: List[str],
+    score: int,
+    max_terms: int = MAX_TERMS_PER_PARAGRAPH,
+) -> List[str]:
+    """
+    当搜索词匹配度评分过低时，让 LLM 重新生成更精准的搜索词。
+
+    Args:
+        paragraph: 脚本段落文本
+        video_subject: 视频主题（额外上下文）
+        previous_terms: 上一轮的搜索词（用于避免重复）
+        score: 上一轮的评分（用于生成失败反馈）
+        max_terms: 最多生成几个搜索词
+
+    Returns:
+        List[str]: 新生成的搜索词；失败时返回空列表
+    """
+    # 生成评分原因的简短描述
+    if score <= 3:
+        score_reason = (
+            "The terms are completely unrelated to the visual scene or consist "
+            "only of abstract concepts that cannot be filmed."
+        )
+    elif score <= 5:
+        score_reason = (
+            "The terms are too generic to reliably find footage matching this "
+            "specific scene. They need more specific visual details."
+        )
+    else:
+        score_reason = (
+            "The terms have some connection but miss key visual elements "
+            "from the paragraph."
+        )
+
+    prompt = REFINE_TERMS_PROMPT.format(
+        max_terms=max_terms,
+        score_reason=score_reason,
+        video_subject=video_subject,
+        paragraph=paragraph.strip(),
+        previous_terms=", ".join(previous_terms),
+    )
+
+    logger.info(
+        f"refining terms for paragraph (previous score={score}/10): "
+        f"{paragraph[:60]}..."
+    )
+
+    terms: List[str] = []
+    response = ""
+    for attempt in range(_max_retries):
+        try:
+            response = _generate_response(prompt)
+            if isinstance(response, str) and "Error: " in response:
+                logger.error(f"refine_search_terms: LLM error: {response}")
+                break
+
+            try:
+                parsed = json.loads(response)
+            except json.JSONDecodeError:
+                match = re.search(r"\[.*\]", response, re.DOTALL)
+                if match:
+                    parsed = json.loads(match.group())
+                else:
+                    raise
+
+            if isinstance(parsed, list) and all(isinstance(t, str) for t in parsed):
+                terms = [t.strip() for t in parsed if t.strip()]
+                if terms:
+                    break
+            else:
+                logger.warning(
+                    f"refine_search_terms: invalid format, retrying... ({attempt + 1})"
+                )
+
+        except Exception as e:
+            logger.warning(
+                f"refine_search_terms: attempt {attempt + 1} failed: {str(e)}"
+            )
+            if response:
+                match = re.search(r"\[.*\]", response, re.DOTALL)
+                if match:
+                    try:
+                        parsed = json.loads(match.group())
+                        if isinstance(parsed, list):
+                            terms = [str(t).strip() for t in parsed if str(t).strip()]
+                            if terms:
+                                break
+                    except Exception:
+                        pass
+
+        if attempt < _max_retries - 1:
+            logger.warning(f"retrying refine_search_terms... ({attempt + 1})")
+
+    if terms:
+        logger.info(f"refined terms: {terms}")
+    else:
+        logger.warning("refine_search_terms: all attempts failed, returning empty list")
+
+    return terms
 
 
 # =============================================================================

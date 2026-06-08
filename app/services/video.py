@@ -696,6 +696,281 @@ def combine_videos(
     return combined_video_path
 
 
+def combine_videos_scene_aligned(
+    combined_video_path: str,
+    video_paths_by_scene: List[List[str]],
+    audio_file: str,
+    video_aspect: VideoAspect = VideoAspect.portrait,
+    video_concat_mode: VideoConcatMode = VideoConcatMode.random,
+    video_transition_mode: VideoTransitionMode = None,
+    max_clip_duration: int = 5,
+    threads: int = 2,
+) -> str:
+    """
+    逐场景/段落对齐的视频拼接。
+
+    与 combine_videos() 的关键区别：
+    - 输入是 List[List[str]]，外层按段落排序，内层是该段落的素材
+    - 每个段落的素材只在对应的时间窗口内出现
+    - 段落间按顺序拼接，保证视频画面与旁白内容对齐
+
+    流程：
+    1. 读取音频总时长，按段落数平分时间窗口
+    2. 为每个段落处理其专属素材，写入中间文件
+    3. 按顺序串联所有段落的中间文件
+    """
+    audio_clip = AudioFileClip(audio_file)
+    try:
+        audio_duration = audio_clip.duration
+    finally:
+        close_clip(audio_clip)
+
+    num_scenes = len(video_paths_by_scene)
+    if num_scenes == 0:
+        logger.warning("no scenes to combine")
+        return combined_video_path
+
+    scene_duration = audio_duration / num_scenes
+    logger.info(
+        f"scene-aligned combining: {num_scenes} scenes, "
+        f"audio={audio_duration:.1f}s, per_scene={scene_duration:.1f}s"
+    )
+
+    transition_value = getattr(video_transition_mode, "value", video_transition_mode)
+    output_dir = os.path.dirname(combined_video_path)
+    aspect = VideoAspect(video_aspect)
+    video_width, video_height = aspect.to_resolution()
+
+    scene_temp_files: List[str] = []
+
+    for scene_idx, scene_video_paths in enumerate(video_paths_by_scene):
+        logger.info(
+            f"processing scene {scene_idx + 1}/{num_scenes}: "
+            f"{len(scene_video_paths)} source videos"
+        )
+
+        if not scene_video_paths:
+            # 空场景：生成黑色占位片段
+            logger.warning(
+                f"scene {scene_idx + 1} has no videos, using black placeholder"
+            )
+            placeholder_path = f"{output_dir}/temp-scene-{scene_idx + 1}-placeholder.mp4"
+            black_clip = ColorClip(
+                size=(video_width, video_height),
+                color=(0, 0, 0),
+            ).with_duration(scene_duration)
+            _write_videofile_with_codec_fallback(
+                black_clip,
+                placeholder_path,
+                codec=_get_configured_video_codec(),
+                logger=None,
+                fps=fps,
+            )
+            close_clip(black_clip)
+            scene_temp_files.append(placeholder_path)
+            continue
+
+        # 处理该场景的素材 clip
+        subclipped_items: List[SubClippedVideoClip] = []
+        for video_path in scene_video_paths:
+            try:
+                clip = _open_video_clip_quietly(video_path)
+                clip_duration = clip.duration
+                clip_w, clip_h = clip.size
+                close_clip(clip)
+
+                start_time = 0
+                while start_time < clip_duration:
+                    end_time = min(start_time + max_clip_duration, clip_duration)
+                    if end_time > start_time:
+                        subclipped_items.append(
+                            SubClippedVideoClip(
+                                file_path=video_path,
+                                start_time=start_time,
+                                end_time=end_time,
+                                width=clip_w,
+                                height=clip_h,
+                                source_file_path=video_path,
+                            )
+                        )
+                    start_time = end_time
+                    if video_concat_mode.value == VideoConcatMode.sequential.value:
+                        break
+            except Exception as e:
+                logger.warning(
+                    f"scene {scene_idx + 1}: skip unreadable video "
+                    f"{os.path.basename(video_path)}: {str(e)}"
+                )
+
+        # 优先去重源素材
+        subclipped_items = _prioritize_unique_source_clips(
+            subclipped_items=subclipped_items,
+            concat_mode=video_concat_mode,
+        )
+
+        processed_clips: List[SubClippedVideoClip] = []
+        scene_accumulated = 0.0
+
+        for j, sub_item in enumerate(subclipped_items):
+            if scene_accumulated >= scene_duration:
+                break
+
+            try:
+                clip = _open_video_clip_quietly(sub_item.file_path).subclipped(
+                    sub_item.start_time, sub_item.end_time
+                )
+                clip_w, clip_h = clip.size
+
+                # Resize to target dimensions
+                if clip_w != video_width or clip_h != video_height:
+                    clip_ratio = clip.w / clip.h
+                    video_ratio = video_width / video_height
+                    if clip_ratio == video_ratio:
+                        clip = clip.resized(new_size=(video_width, video_height))
+                    else:
+                        if clip_ratio > video_ratio:
+                            scale_factor = video_width / clip_w
+                        else:
+                            scale_factor = video_height / clip_h
+                        new_width = int(clip_w * scale_factor)
+                        new_height = int(clip_h * scale_factor)
+                        background = ColorClip(
+                            size=(video_width, video_height), color=(0, 0, 0)
+                        ).with_duration(clip.duration)
+                        clip_resized = clip.resized(
+                            new_size=(new_width, new_height)
+                        ).with_position("center")
+                        clip = CompositeVideoClip([background, clip_resized])
+
+                # Apply transition
+                if transition_value in (None, VideoTransitionMode.none.value):
+                    pass
+                elif transition_value == VideoTransitionMode.fade_in.value:
+                    clip = video_effects.fadein_transition(clip, 1)
+                elif transition_value == VideoTransitionMode.fade_out.value:
+                    clip = video_effects.fadeout_transition(clip, 1)
+                elif transition_value == VideoTransitionMode.slide_in.value:
+                    shuffle_side = random.choice(["left", "right", "top", "bottom"])
+                    clip = video_effects.slidein_transition(clip, 1, shuffle_side)
+                elif transition_value == VideoTransitionMode.slide_out.value:
+                    shuffle_side = random.choice(["left", "right", "top", "bottom"])
+                    clip = video_effects.slideout_transition(clip, 1, shuffle_side)
+                elif transition_value == VideoTransitionMode.shuffle.value:
+                    shuffle_side = random.choice(["left", "right", "top", "bottom"])
+                    transition_funcs = [
+                        lambda c: video_effects.fadein_transition(c, 1),
+                        lambda c: video_effects.fadeout_transition(c, 1),
+                        lambda c: video_effects.slidein_transition(c, 1, shuffle_side),
+                        lambda c: video_effects.slideout_transition(c, 1, shuffle_side),
+                    ]
+                    shuffle_transition = random.choice(transition_funcs)
+                    clip = shuffle_transition(clip)
+
+                if clip.duration > max_clip_duration:
+                    clip = clip.subclipped(0, max_clip_duration)
+
+                # 如果加上这个 clip 会超出场景时长，裁剪之
+                remaining = scene_duration - scene_accumulated
+                if clip.duration > remaining:
+                    clip = clip.subclipped(0, max(0.5, remaining))
+
+                clip_file = f"{output_dir}/temp-scene-{scene_idx + 1}-clip-{j + 1}.mp4"
+                _write_videofile_with_codec_fallback(
+                    clip,
+                    clip_file,
+                    codec=_get_configured_video_codec(),
+                    logger=None,
+                    fps=fps,
+                )
+
+                clip_duration_saved = clip.duration
+                close_clip(clip)
+
+                processed_clips.append(
+                    SubClippedVideoClip(
+                        file_path=clip_file,
+                        duration=clip_duration_saved,
+                        width=clip_w,
+                        height=clip_h,
+                        source_file_path=sub_item.source_file_path,
+                    )
+                )
+                scene_accumulated += clip_duration_saved
+
+            except Exception as e:
+                logger.error(
+                    f"scene {scene_idx + 1} clip processing failed: {str(e)}"
+                )
+
+        # 循环补齐不足的时长
+        if scene_accumulated < scene_duration and processed_clips:
+            base_clips = processed_clips.copy()
+            for clip in itertools.cycle(base_clips):
+                if scene_accumulated >= scene_duration:
+                    break
+                processed_clips.append(clip)
+                scene_accumulated += clip.duration
+            logger.info(
+                f"scene {scene_idx + 1}: looped clips to fill "
+                f"{scene_duration - scene_accumulated + len(base_clips) * base_clips[0].duration if base_clips else 0:.1f}s"
+            )
+
+        # 写出该场景的中间文件
+        scene_temp = f"{output_dir}/temp-scene-{scene_idx + 1}.mp4"
+        if not processed_clips:
+            # 没有可用素材：黑色占位
+            logger.warning(
+                f"scene {scene_idx + 1}: no processed clips, using black placeholder"
+            )
+            black_clip = ColorClip(
+                size=(video_width, video_height), color=(0, 0, 0)
+            ).with_duration(scene_duration)
+            _write_videofile_with_codec_fallback(
+                black_clip,
+                scene_temp,
+                codec=_get_configured_video_codec(),
+                logger=None,
+                fps=fps,
+            )
+            close_clip(black_clip)
+        elif len(processed_clips) == 1:
+            shutil.copy(processed_clips[0].file_path, scene_temp)
+            delete_files([processed_clips[0].file_path])
+        else:
+            clip_files = [clip.file_path for clip in processed_clips]
+            concat_video_clips_with_ffmpeg(
+                clip_files=clip_files,
+                output_file=scene_temp,
+                threads=threads,
+                output_dir=output_dir,
+            )
+            delete_files(clip_files)
+
+        scene_temp_files.append(scene_temp)
+        logger.info(
+            f"scene {scene_idx + 1}: wrote {os.path.basename(scene_temp)}, "
+            f"duration={scene_accumulated:.1f}s"
+        )
+
+    # 最终：按场景顺序串联所有中间文件
+    logger.info(f"concatenating {len(scene_temp_files)} scenes in order")
+    if len(scene_temp_files) == 1:
+        shutil.copy(scene_temp_files[0], combined_video_path)
+    else:
+        concat_video_clips_with_ffmpeg(
+            clip_files=scene_temp_files,
+            output_file=combined_video_path,
+            threads=threads,
+            output_dir=output_dir,
+        )
+
+    # 清理场景中间文件
+    delete_files(scene_temp_files)
+
+    logger.info("scene-aligned video combining completed")
+    return combined_video_path
+
+
 def wrap_text(text, max_width, font="Arial", fontsize=60):
     # 字幕换行必须在真正创建 TextClip 前完成，否则 MoviePy 只会按原始文本
     # 计算渲染区域。这里用 PIL 按当前字体和字号测量宽度，确保每一行都尽量
