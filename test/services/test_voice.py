@@ -1,5 +1,6 @@
 import asyncio
 import base64
+import os
 import unittest
 import sys
 import tempfile
@@ -187,6 +188,10 @@ class TestVoiceService(unittest.TestCase):
 
         self.loop.run_until_complete(_do())
     
+    @unittest.skipUnless(
+        os.getenv("MPT_RUN_LIVE_TESTS"),
+        "set MPT_RUN_LIVE_TESTS=1 to call Edge TTS",
+    )
     def test_azure_tts_v1(self):
         voice_name = "zh-CN-XiaoyiNeural-Female"
         voice_name = vs.parse_voice_name(voice_name)

@@ -44,16 +44,25 @@ class TaskManager:
                 self.enqueue({"func": func, "args": args, "kwargs": kwargs})
 
     def execute_task(self, func: Callable, *args: Any, **kwargs: Any):
+        # 调用方持有 self.lock。必须在线程真正跑起来之前占住名额，否则多个
+        # add_task 会同时看到 current_tasks 还是 0，把 max_concurrent_tasks 冲破。
+        self.current_tasks += 1
         thread = threading.Thread(
             target=self.run_task, args=(func, *args), kwargs=kwargs
         )
-        thread.start()
+        try:
+            thread.start()
+        except Exception:
+            self.current_tasks -= 1
+            raise
 
     def run_task(self, func: Callable, *args: Any, **kwargs: Any):
         try:
-            with self.lock:
-                self.current_tasks += 1
-            func(*args, **kwargs)  # call the function here, passing *args and **kwargs.
+            func(*args, **kwargs)
+        except Exception:
+            logger.exception(
+                f"task execution failed: {getattr(func, '__name__', func)}"
+            )
         finally:
             self.task_done()
 
@@ -64,6 +73,8 @@ class TaskManager:
                 and not self.is_queue_empty()
             ):
                 task_info = self.dequeue()
+                if not task_info:
+                    return
                 func = task_info["func"]
                 args = task_info.get("args", ())
                 kwargs = task_info.get("kwargs", {})

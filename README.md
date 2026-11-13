@@ -8,6 +8,7 @@
 <p align="center">
   <a href="https://github.com/sapsapshen/MPTurboPlus/blob/main/LICENSE"><img src="https://img.shields.io/github/license/sapsapshen/MPTurboPlus.svg?style=for-the-badge" alt="License"></a>
   <a href="https://github.com/harry0703/MoneyPrinterTurbo"><img src="https://img.shields.io/badge/upstream-MoneyPrinterTurbo-blue?style=for-the-badge" alt="Upstream"></a>
+  <a href="https://github.com/sapsapshen/MPTurboPlus/actions/workflows/ci.yml"><img src="https://github.com/sapsapshen/MPTurboPlus/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
 </p>
 
 <br>
@@ -91,6 +92,15 @@
 - 所有新增函数与旧函数并存，旧 API 调用不受影响
 - 配置文件和 WebUI 参数无变化
 
+### 5. 失败可见、健康检查和启动对齐
+
+- 生成过程中的未捕获异常会把任务写成失败（`state = -1`），并保留最后进度和 `error` 字段。查询 `GET /api/v1/tasks/{task_id}` 就能看到原因，任务不会一直停在“处理中”
+- 已知失败（文案、配音、素材、成片）也会把原因写入 `error`
+- `GET /ping` 返回纯文本 `pong`，可用于本机或 Docker 健康检查
+- Linux / macOS 的 `start.sh` 与 Windows 的 `start.bat` 共用 `start_helper.py` 探测端口，不再要求系统里一定有 `python3`
+- Whisper 配置里的 `device = "CPU"` 会按 `cpu` 传给 faster-whisper；`compute_type` 同样不区分大小写
+- 未设置 Redis 密码时，任务队列不会再把空密码或字符串 `"None"` 送去认证
+
 ---
 
 ## 快速开始 🚀
@@ -138,6 +148,26 @@ uv run streamlit run webui/Main.py --server.address=127.0.0.1 --server.enableCOR
 - 将 `paragraph_number` 设为 **3 以上**，体验场景对齐效果最佳
 - 主题尽量具体（如"黄山云海日出"而非"风景"）
 - `video_clip_duration` 建议 3-5 秒，避免单段过长失去节奏
+
+健康检查：
+
+```shell
+curl http://127.0.0.1:8080/ping
+```
+
+### 测试
+
+```shell
+uv run python -m unittest discover -s test
+```
+
+调用 Edge TTS 或完整渲染本地素材的用例默认跳过。需要时再打开：
+
+```shell
+MPT_RUN_LIVE_TESTS=1 uv run python -m unittest discover -s test
+```
+
+GitHub Actions 会在 push 和 pull request 上运行同一套单元测试。
 
 ---
 

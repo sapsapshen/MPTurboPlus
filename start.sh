@@ -54,42 +54,35 @@ echo -e "Launcher: ${GREEN}${LAUNCHER}${NC}"
 echo ""
 
 # ---------------------------------------------------------------------------
-# 3. 端口探测 — 找一个可用的 WebUI 端口
+# 3. 端口探测 — 与 start.bat 共用 start_helper.py
 # ---------------------------------------------------------------------------
-find_available_port() {
-    python3 - "$WEBUI_HOST" "$WEBUI_PORT" "$@" 2>/dev/null <<'PYEOF'
-import os
-import socket
-import sys
-
-host = sys.argv[1] if len(sys.argv) > 1 else "127.0.0.1"
-preferred = int(sys.argv[2]) if len(sys.argv) > 2 else 8501
-candidates = [preferred] + [p for p in range(8502, 8600) if p != preferred]
-
-for port in candidates:
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-        try:
-            sock.bind((host, port))
-        except OSError:
-            continue
-        print(port)
-        sys.exit(0)
-
-sys.exit(1)
-PYEOF
+# 使用当前启动器对应的 Python。只有 .venv / uv、没有系统 python3 时也能探测端口。
+run_python() {
+    case "$LAUNCHER" in
+        venv)
+            "$CURRENT_DIR/.venv/bin/python" "$@"
+            ;;
+        uv)
+            uv run python "$@"
+            ;;
+        system)
+            python3 "$@"
+            ;;
+        *)
+            echo "unsupported launcher: $LAUNCHER" >&2
+            return 1
+            ;;
+    esac
 }
 
-# Use the appropriate Python for port probing
-case "$LAUNCHER" in
-    venv)   PORT_PROBE_PYTHON="$CURRENT_DIR/.venv/bin/python" ;;
-    uv)     PORT_PROBE_PYTHON="uv run python" ;;
-    system) PORT_PROBE_PYTHON="python3" ;;
-esac
+API_ALREADY_RUNNING=false
+if run_python "$CURRENT_DIR/start_helper.py" check 127.0.0.1 "$API_PORT"; then
+    API_ALREADY_RUNNING=true
+fi
 
-# Detect available WebUI port
-SELECTED_WEBUI_PORT="$(find_available_port "$PORT_PROBE_PYTHON" 2>/dev/null)"
+SELECTED_WEBUI_PORT="$(run_python "$CURRENT_DIR/start_helper.py" find "$WEBUI_HOST" "$WEBUI_PORT" 8599 || true)"
 if [[ -z "$SELECTED_WEBUI_PORT" ]]; then
-    echo -e "${RED}***** No available WebUI port found in 8501-8599 for ${WEBUI_HOST}. *****${NC}"
+    echo -e "${RED}***** No available WebUI port found in ${WEBUI_PORT}-8599 for ${WEBUI_HOST}. *****${NC}"
     exit 1
 fi
 
@@ -97,22 +90,6 @@ if [[ "$SELECTED_WEBUI_PORT" != "$WEBUI_PORT" ]]; then
     echo -e "${YELLOW}***** Port ${WEBUI_PORT} is unavailable, using ${SELECTED_WEBUI_PORT} instead. *****${NC}"
 fi
 WEBUI_PORT="$SELECTED_WEBUI_PORT"
-
-# Check if API port is already in use
-API_ALREADY_RUNNING=false
-if python3 -c "
-import socket
-s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-try:
-    s.connect(('127.0.0.1', ${API_PORT}))
-    s.close()
-    exit(0)
-except:
-    s.close()
-    exit(1)
-" 2>/dev/null; then
-    API_ALREADY_RUNNING=true
-fi
 
 # ---------------------------------------------------------------------------
 # 4. 构建启动命令
@@ -144,18 +121,8 @@ else
     "${API_CMD[@]}" &
     API_PID=$!
     # 等待 API 就绪
-    for i in $(seq 1 15); do
-        if python3 -c "
-import socket
-s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-try:
-    s.connect(('127.0.0.1', ${API_PORT}))
-    s.close()
-    exit(0)
-except:
-    s.close()
-    exit(1)
-" 2>/dev/null; then
+    for _ in $(seq 1 15); do
+        if run_python "$CURRENT_DIR/start_helper.py" check 127.0.0.1 "$API_PORT"; then
             echo -e "[API] ${GREEN}Ready.${NC}"
             break
         fi

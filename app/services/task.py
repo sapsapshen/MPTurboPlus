@@ -13,6 +13,11 @@ from app.services import state as sm
 from app.utils import utils
 
 
+def _mark_task_failed(task_id: str, error: str) -> None:
+    logger.error(error)
+    sm.state.update_task(task_id, state=const.TASK_STATE_FAILED, error=error)
+
+
 def generate_script(task_id, params):
     logger.info("\n\n## generating video script")
     video_script = params.video_script.strip()
@@ -28,8 +33,7 @@ def generate_script(task_id, params):
         logger.debug(f"video script: \n{video_script}")
 
     if not video_script:
-        sm.state.update_task(task_id, state=const.TASK_STATE_FAILED)
-        logger.error("failed to generate video script.")
+        _mark_task_failed(task_id, "failed to generate video script.")
         return None
 
     return video_script
@@ -75,8 +79,7 @@ def generate_terms(task_id, params, video_script):
         logger.debug(f"video terms: {utils.to_json(video_terms)}")
 
     if not video_terms:
-        sm.state.update_task(task_id, state=const.TASK_STATE_FAILED)
-        logger.error("failed to generate video terms.")
+        _mark_task_failed(task_id, "failed to generate video terms.")
         return None
 
     return video_terms
@@ -124,26 +127,26 @@ def generate_audio(task_id, params, video_script):
             voice_file=audio_file,
         )
         if sub_maker is None:
-            sm.state.update_task(task_id, state=const.TASK_STATE_FAILED)
-            logger.error(
+            _mark_task_failed(
+                task_id,
                 """failed to generate audio:
 1. check if the language of the voice matches the language of the video script.
 2. check if the network is available. If you are in China, it is recommended to use a VPN and enable the global traffic mode.
-            """.strip()
+            """.strip(),
             )
             return None, None, None
         audio_duration = math.ceil(voice.get_audio_duration(sub_maker))
         if audio_duration == 0:
-            sm.state.update_task(task_id, state=const.TASK_STATE_FAILED)
-            logger.error("failed to get audio duration.")
+            _mark_task_failed(task_id, "failed to get audio duration.")
             return None, None, None
         return audio_file, audio_duration, sub_maker
     else:
         logger.info(f"using custom audio file: {custom_audio_file}")
         audio_duration = voice.get_audio_duration(custom_audio_file)
         if audio_duration == 0:
-            sm.state.update_task(task_id, state=const.TASK_STATE_FAILED)
-            logger.error("failed to get audio duration from custom audio file.")
+            _mark_task_failed(
+                task_id, "failed to get audio duration from custom audio file."
+            )
             return None, None, None
         return custom_audio_file, audio_duration, None
 
@@ -192,9 +195,9 @@ def get_video_materials(task_id, params, video_terms, audio_duration):
             materials=params.video_materials, clip_duration=params.video_clip_duration
         )
         if not materials:
-            sm.state.update_task(task_id, state=const.TASK_STATE_FAILED)
-            logger.error(
-                "no valid materials found, please check the materials and try again."
+            _mark_task_failed(
+                task_id,
+                "no valid materials found, please check the materials and try again.",
             )
             return None
         return [material_info.url for material_info in materials]
@@ -238,9 +241,9 @@ def get_video_materials(task_id, params, video_terms, audio_duration):
             )
 
         if not downloaded_videos:
-            sm.state.update_task(task_id, state=const.TASK_STATE_FAILED)
-            logger.error(
-                "failed to download videos, maybe the network is not available. if you are in China, please use a VPN."
+            _mark_task_failed(
+                task_id,
+                "failed to download videos, maybe the network is not available. if you are in China, please use a VPN.",
             )
             return None
         return downloaded_videos
@@ -318,13 +321,31 @@ def generate_final_videos(
 
 
 def start(task_id, params: VideoParams, stop_at: str = "video"):
+    try:
+        return _start_task(task_id, params, stop_at)
+    except Exception as exc:
+        # 拼接、TTS 或模型调用抛出的异常以前只会杀掉后台线程，任务会一直停在
+        # 处理中。这里把失败写回任务状态，WebUI 和轮询接口都能结束等待。
+        logger.exception(f"task {task_id} failed")
+        sm.state.update_task(
+            task_id,
+            state=const.TASK_STATE_FAILED,
+            error=str(exc),
+        )
+        return None
+
+
+def _start_task(task_id, params: VideoParams, stop_at: str = "video"):
     logger.info(f"start task: {task_id}, stop_at: {stop_at}")
     sm.state.update_task(task_id, state=const.TASK_STATE_PROCESSING, progress=5)
 
     # 1. Generate script
     video_script = generate_script(task_id, params)
     if not video_script or "Error: " in video_script:
-        sm.state.update_task(task_id, state=const.TASK_STATE_FAILED)
+        if video_script:
+            _mark_task_failed(task_id, str(video_script))
+        else:
+            sm.state.update_task(task_id, state=const.TASK_STATE_FAILED)
         return
 
     sm.state.update_task(task_id, state=const.TASK_STATE_PROCESSING, progress=10)
@@ -418,7 +439,7 @@ def start(task_id, params: VideoParams, stop_at: str = "video"):
     )
 
     if not final_video_paths:
-        sm.state.update_task(task_id, state=const.TASK_STATE_FAILED)
+        _mark_task_failed(task_id, "failed to generate the final video.")
         return
 
     logger.success(

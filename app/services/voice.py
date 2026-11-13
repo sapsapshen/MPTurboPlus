@@ -746,6 +746,7 @@ def siliconflow_tts(
 
             if response.status_code == 200:
                 # 保存音频文件
+                ensure_file_path_exists(voice_file)
                 with open(voice_file, "wb") as f:
                     f.write(response.content)
 
@@ -879,6 +880,7 @@ def azure_tts_v2(text: str, voice_name: str, voice_file: str) -> Union[SubMaker,
                 logger.error("Azure speech key or region is not set")
                 return None
 
+            ensure_file_path_exists(voice_file)
             audio_config = speechsdk.audio.AudioOutputConfig(
                 filename=voice_file, use_default_speaker=True
             )
@@ -1018,7 +1020,8 @@ def gemini_tts(
             logger.error(f"Failed to load PCM audio: {e}")
             return None
         
-        # 导出为MP3格式
+        # 导出为MP3格式。调用方有时只给了文件名，目录还不存在。
+        ensure_file_path_exists(voice_file)
         audio_segment.export(voice_file, format="mp3")
         
         logger.info(f"completed, output file: {voice_file}")

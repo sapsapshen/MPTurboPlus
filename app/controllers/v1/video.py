@@ -13,7 +13,7 @@ from app.config import config
 from app.controllers import base
 from app.controllers.manager.base_manager import TaskQueueFullError
 from app.controllers.manager.memory_manager import InMemoryTaskManager
-from app.controllers.manager.redis_manager import RedisTaskManager
+from app.controllers.manager.redis_manager import RedisTaskManager, build_redis_url
 from app.controllers.v1.base import new_router
 from app.models.exception import HttpException
 from app.models.schema import (
@@ -45,7 +45,9 @@ _redis_password = config.app.get("redis_password", None)
 _max_concurrent_tasks = config.app.get("max_concurrent_tasks", 5)
 _max_queued_tasks = config.app.get("max_queued_tasks", 100)
 
-redis_url = f"redis://:{_redis_password}@{_redis_host}:{_redis_port}/{_redis_db}"
+redis_url = build_redis_url(
+    _redis_host, _redis_port, _redis_db, _redis_password
+)
 # 根据配置选择合适的任务管理器
 if _enable_redis:
     task_manager = RedisTaskManager(
@@ -63,14 +65,14 @@ else:
 def _sanitize_upload_filename(filename: str, request_id: str) -> str:
     # 浏览器或客户端有时会附带目录信息，甚至可能夹带 ../ 这类穿越片段。
     # 这里只保留纯文件名，避免上传接口把文件写到目标目录之外。
-    normalized_name = (filename or "").replace("\\", "/").split("/")[-1].strip()
-    if not normalized_name or normalized_name in {".", ".."}:
+    try:
+        return file_security.sanitize_filename(filename)
+    except ValueError:
         raise HttpException(
             task_id=request_id,
             status_code=400,
             message=f"{request_id}: invalid filename",
         )
-    return normalized_name
 
 
 def _resolve_path_within_directory(base_dir: str, unsafe_path: str, request_id: str) -> str:
