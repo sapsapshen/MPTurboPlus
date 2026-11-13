@@ -12,9 +12,18 @@ from loguru import logger
 from app.config import config
 from app.utils import utils
 
+
+def normalize_whisper_option(value: str | None, default: str) -> str:
+    """Accept config values such as ``CPU`` that faster-whisper rejects."""
+    normalized = str(value or "").strip().lower()
+    return normalized or default
+
+
 model_size = config.whisper.get("model_size", "large-v3")
-device = config.whisper.get("device", "cpu")
-compute_type = config.whisper.get("compute_type", "int8")
+device = normalize_whisper_option(config.whisper.get("device", "cpu"), "cpu")
+compute_type = normalize_whisper_option(
+    config.whisper.get("compute_type", "int8"), "int8"
+)
 model = None
 
 

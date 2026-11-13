@@ -4,7 +4,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from app.services.state import RedisState
+from app.models import const
+from app.services.state import MemoryState, RedisState
 
 
 class _FakeRedis:
@@ -68,6 +69,89 @@ class TestRedisState(unittest.TestCase):
             [task["task_id"] for task in second_page],
             [f"task:{i}" for i in range(10, 18)],
         )
+
+
+class _HashRedis:
+    def __init__(self):
+        self.hashes = {}
+
+    def hset(self, name, key, value):
+        bucket = self.hashes.setdefault(name, {})
+        field = key.encode("utf-8") if isinstance(key, str) else key
+        stored = value.encode("utf-8") if isinstance(value, str) else value
+        bucket[field] = stored
+
+    def hgetall(self, name):
+        return dict(self.hashes.get(name, {}))
+
+
+class TestTaskStateUpdates(unittest.TestCase):
+    def test_memory_failure_keeps_progress_and_existing_fields(self):
+        state = MemoryState()
+        state.update_task(
+            "task-1",
+            state=const.TASK_STATE_PROCESSING,
+            progress=40,
+            script="hello",
+        )
+
+        state.update_task("task-1", state=const.TASK_STATE_FAILED, error="boom")
+
+        task = state.get_task("task-1")
+        self.assertEqual(task["state"], const.TASK_STATE_FAILED)
+        self.assertEqual(task["progress"], 40)
+        self.assertEqual(task["script"], "hello")
+        self.assertEqual(task["error"], "boom")
+
+    def test_memory_progress_update_keeps_state(self):
+        state = MemoryState()
+        state.update_task(
+            "task-1",
+            state=const.TASK_STATE_PROCESSING,
+            progress=10,
+            script="hello",
+        )
+
+        state.update_task("task-1", progress=150)
+
+        task = state.get_task("task-1")
+        self.assertEqual(task["state"], const.TASK_STATE_PROCESSING)
+        self.assertEqual(task["progress"], 100)
+        self.assertEqual(task["script"], "hello")
+
+    def test_memory_bare_update_resets_task(self):
+        state = MemoryState()
+        state.update_task(
+            "task-1",
+            state=const.TASK_STATE_COMPLETE,
+            progress=80,
+            script="hello",
+        )
+
+        state.update_task("task-1")
+
+        task = state.get_task("task-1")
+        self.assertEqual(task["state"], const.TASK_STATE_PROCESSING)
+        self.assertEqual(task["progress"], 0)
+        self.assertNotIn("script", task)
+
+    def test_redis_failure_keeps_progress(self):
+        state = RedisState.__new__(RedisState)
+        state._redis = _HashRedis()
+        state.update_task(
+            "task-1",
+            state=const.TASK_STATE_PROCESSING,
+            progress=40,
+            script="hello",
+        )
+
+        state.update_task("task-1", state=const.TASK_STATE_FAILED, error="boom")
+
+        task = state.get_task("task-1")
+        self.assertEqual(task["state"], const.TASK_STATE_FAILED)
+        self.assertEqual(task["progress"], 40)
+        self.assertEqual(task["script"], "hello")
+        self.assertEqual(task["error"], "boom")
 
 
 if __name__ == "__main__":

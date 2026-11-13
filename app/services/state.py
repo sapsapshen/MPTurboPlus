@@ -1,14 +1,57 @@
 import ast
 from abc import ABC, abstractmethod
+from typing import Any
+
+import redis
 
 from app.config import config
 from app.models import const
+
+# 区分“调用方没传这个字段”和“调用方显式传入 0 / 失败状态”。
+_MISSING = object()
+
+
+def build_task_updates(
+    task_id: str,
+    state: Any,
+    progress: Any,
+    extra: dict,
+) -> dict[str, Any]:
+    """Build a partial task update.
+
+    `update_task(task_id)` with no fields still initializes a task as processing.
+    Progress and state are written only when the caller passes them, so marking
+    a task failed does not wipe the last progress value.
+    """
+    if state is _MISSING and progress is _MISSING and not extra:
+        return {
+            "task_id": task_id,
+            "state": const.TASK_STATE_PROCESSING,
+            "progress": 0,
+        }
+
+    updates: dict[str, Any] = {"task_id": task_id}
+    if state is not _MISSING:
+        updates["state"] = state
+    if progress is not _MISSING:
+        progress_value = int(progress)
+        if progress_value > 100:
+            progress_value = 100
+        updates["progress"] = progress_value
+    updates.update(extra)
+    return updates
 
 
 # Base class for state management
 class BaseState(ABC):
     @abstractmethod
-    def update_task(self, task_id: str, state: int, progress: int = 0, **kwargs):
+    def update_task(
+        self,
+        task_id: str,
+        state: Any = _MISSING,
+        progress: Any = _MISSING,
+        **kwargs,
+    ):
         pass
 
     @abstractmethod
@@ -35,20 +78,20 @@ class MemoryState(BaseState):
     def update_task(
         self,
         task_id: str,
-        state: int = const.TASK_STATE_PROCESSING,
-        progress: int = 0,
+        state: Any = _MISSING,
+        progress: Any = _MISSING,
         **kwargs,
     ):
-        progress = int(progress)
-        if progress > 100:
-            progress = 100
+        updates = build_task_updates(task_id, state, progress, kwargs)
+        # 不带任何字段的调用仍表示重新初始化，保持旧的整条覆盖行为。
+        # 只更新 progress、state 或 error 时改为合并，避免失败回写把最后进度清掉。
+        if state is _MISSING and progress is _MISSING and not kwargs:
+            self._tasks[task_id] = updates
+            return
 
-        self._tasks[task_id] = {
-            "task_id": task_id,
-            "state": state,
-            "progress": progress,
-            **kwargs,
-        }
+        current = dict(self._tasks.get(task_id, {}))
+        current.update(updates)
+        self._tasks[task_id] = current
 
     def get_task(self, task_id: str):
         return self._tasks.get(task_id, None)
@@ -61,8 +104,9 @@ class MemoryState(BaseState):
 # Redis state management
 class RedisState(BaseState):
     def __init__(self, host="localhost", port=6379, db=0, password=None):
-        import redis
-
+        # 示例配置用空字符串表示“没有密码”。传给 redis-py 时空字符串会触发 AUTH。
+        if not password:
+            password = None
         self._redis = redis.StrictRedis(host=host, port=port, db=db, password=password)
 
     def get_all_tasks(self, page: int, page_size: int):
@@ -100,22 +144,12 @@ class RedisState(BaseState):
     def update_task(
         self,
         task_id: str,
-        state: int = const.TASK_STATE_PROCESSING,
-        progress: int = 0,
+        state: Any = _MISSING,
+        progress: Any = _MISSING,
         **kwargs,
     ):
-        progress = int(progress)
-        if progress > 100:
-            progress = 100
-
-        fields = {
-            "task_id": task_id,
-            "state": state,
-            "progress": progress,
-            **kwargs,
-        }
-
-        for field, value in fields.items():
+        updates = build_task_updates(task_id, state, progress, kwargs)
+        for field, value in updates.items():
             self._redis.hset(task_id, field, str(value))
 
     def get_task(self, task_id: str):

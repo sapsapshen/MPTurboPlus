@@ -33,3 +33,29 @@ def resolve_path_within_directory(
         raise ValueError("file does not exist")
 
     return resolved_path
+
+
+_AUDIO_EXTENSIONS = {".mp3", ".wav", ".m4a", ".aac", ".flac", ".ogg", ".webm"}
+
+
+def sanitize_filename(filename: str) -> str:
+    """Keep only the final path segment from a browser-supplied filename."""
+    normalized_name = (
+        (filename or "").replace("\\", "/").replace("\x00", "").split("/")[-1].strip()
+    )
+    if not normalized_name or normalized_name in {".", ".."}:
+        raise ValueError("invalid filename")
+    return normalized_name
+
+
+def safe_audio_extension(filename: str, default: str = ".mp3") -> str:
+    """Return a lowercase audio extension, or the default when it is unsafe."""
+    try:
+        safe_name = sanitize_filename(filename)
+    except ValueError:
+        return default
+
+    extension = os.path.splitext(safe_name)[1].lower()
+    if extension in _AUDIO_EXTENSIONS:
+        return extension
+    return default

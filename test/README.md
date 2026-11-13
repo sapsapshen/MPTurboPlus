@@ -25,7 +25,15 @@ python -m unittest test.services.test_video.TestVideoService
 
 # Run a specific test method
 python -m unittest test.services.test_video.TestVideoService.test_preprocess_video
-````
+```
+
+Live tests that call Edge TTS or render a full local-material video are skipped unless `MPT_RUN_LIVE_TESTS=1`.
+
+```bash
+MPT_RUN_LIVE_TESTS=1 python -m unittest discover -s test
+```
+
+GitHub Actions runs the default `unittest discover` command on push and pull request. The workflow is `.github/workflows/ci.yml`.
 
 ## Adding New Tests
 

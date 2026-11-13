@@ -285,8 +285,9 @@ max_queued_tasks = 100
 
 # recommended model_size: "large-v3"
 model_size = "large-v3"
+# device is case-insensitive. "cpu" and "CPU" both run on CPU.
 # if you want to use GPU, set device="cuda"
-device = "CPU"
+device = "cpu"
 compute_type = "int8"
 
 

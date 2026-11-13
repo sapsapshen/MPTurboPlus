@@ -7,8 +7,10 @@ from unittest.mock import patch
 # add project root to python path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from app.services import task as tm
+from app.models import const
 from app.models.schema import MaterialInfo, VideoParams
+from app.services import state as sm
+from app.services import task as tm
 
 resources_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "resources")
 
@@ -44,7 +46,45 @@ class TestTaskService(unittest.TestCase):
             video_script_prompt="语气轻松",
             custom_system_prompt="Only write short narration.",
         )
-    
+
+    def test_start_marks_task_failed_when_script_generation_raises(self):
+        params = VideoParams(video_subject="咖啡", video_script="")
+        task_id = "task-script-exception"
+        try:
+            with patch.object(
+                tm.llm, "generate_script", side_effect=RuntimeError("llm down")
+            ):
+                result = tm.start(task_id, params, stop_at="script")
+
+            self.assertIsNone(result)
+            task = sm.state.get_task(task_id)
+            self.assertEqual(task["state"], const.TASK_STATE_FAILED)
+            self.assertEqual(task["progress"], 5)
+            self.assertIn("llm down", task["error"])
+        finally:
+            sm.state.delete_task(task_id)
+
+    def test_start_records_provider_error_text(self):
+        params = VideoParams(video_subject="咖啡", video_script="")
+        task_id = "task-script-error-text"
+        try:
+            with patch.object(
+                tm.llm, "generate_script", return_value="Error: provider down"
+            ):
+                result = tm.start(task_id, params, stop_at="script")
+
+            self.assertIsNone(result)
+            task = sm.state.get_task(task_id)
+            self.assertEqual(task["state"], const.TASK_STATE_FAILED)
+            self.assertEqual(task["progress"], 5)
+            self.assertIn("provider down", task["error"])
+        finally:
+            sm.state.delete_task(task_id)
+
+    @unittest.skipUnless(
+        os.getenv("MPT_RUN_LIVE_TESTS"),
+        "set MPT_RUN_LIVE_TESTS=1 to render a full local-material video",
+    )
     def test_task_local_materials(self):
         task_id = "00000000-0000-0000-0000-000000000000"
         video_materials=[]

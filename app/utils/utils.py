@@ -18,7 +18,8 @@ def get_response(status: int, data: Any = None, message: str = ""):
     obj = {
         "status": status,
     }
-    if data:
+    # 保留空列表、空对象和 False。只有调用方没传 data 时才省略该字段。
+    if data is not None:
         obj["data"] = data
     if message:
         obj["message"] = message

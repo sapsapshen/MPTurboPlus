@@ -1,5 +1,6 @@
 import json
 from typing import Dict
+from urllib.parse import quote
 
 import redis
 
@@ -11,6 +12,20 @@ FUNC_MAP = {
     "start": tm.start,
     # 'start_test': tm.start_test
 }
+
+
+def build_redis_url(host: str, port: int, db: int, password: str | None = None) -> str:
+    """Build a Redis URL without sending an empty password as AUTH.
+
+    `config.example.toml` uses `redis_password = ""`. Formatting that value as
+    `redis://:{password}@host` makes the client authenticate with an empty
+    password, and a missing password used to become the literal string "None".
+    """
+    hostname = host or "localhost"
+    if password:
+        quoted_password = quote(str(password), safe="")
+        return f"redis://:{quoted_password}@{hostname}:{port}/{db}"
+    return f"redis://{hostname}:{port}/{db}"
 
 
 class RedisTaskManager(TaskManager):
@@ -34,7 +49,7 @@ class RedisTaskManager(TaskManager):
         ):
             task_with_serializable_params["kwargs"]["params"] = task["kwargs"][
                 "params"
-            ].dict()
+            ].model_dump(mode="json")
 
         # 将函数对象转换为其名称
         task_with_serializable_params["func"] = task["func"].__name__

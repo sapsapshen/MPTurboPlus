@@ -25,7 +25,7 @@ from app.models.schema import (
 )
 from app.services import llm, voice
 from app.services import task as tm
-from app.utils import utils
+from app.utils import file_security, utils
 
 st.set_page_config(
     page_title="MoneyPrinterTurbo",
@@ -1368,10 +1368,9 @@ if start_button:
 
     if uploaded_audio_file:
         task_dir = utils.task_dir(task_id)
-        # 上传文件名来自浏览器，不能直接拼到磁盘路径里；这里只保留扩展名，
-        # 并使用固定文件名保存到当前任务目录，避免路径穿越或特殊字符问题。
-        _, audio_ext = os.path.splitext(os.path.basename(uploaded_audio_file.name))
-        audio_ext = audio_ext.lower() or ".mp3"
+        # 上传文件名来自浏览器。这里只接受常见音频扩展名，并用固定文件名
+        # 保存到当前任务目录，避免路径穿越或把奇怪后缀写进磁盘。
+        audio_ext = file_security.safe_audio_extension(uploaded_audio_file.name)
         custom_audio_path = os.path.join(task_dir, f"custom-audio{audio_ext}")
         with open(custom_audio_path, "wb") as f:
             f.write(uploaded_audio_file.getbuffer())
@@ -1383,7 +1382,15 @@ if start_button:
         params.video_materials = []
         persisted_local_materials = []
         for file in uploaded_files:
-            file_path = os.path.join(local_videos_dir, f"{file.file_id}_{file.name}")
+            try:
+                safe_id = file_security.sanitize_filename(str(file.file_id))
+            except ValueError:
+                safe_id = "upload"
+            try:
+                safe_name = file_security.sanitize_filename(file.name)
+            except ValueError:
+                safe_name = "file"
+            file_path = os.path.join(local_videos_dir, f"{safe_id}_{safe_name}")
             with open(file_path, "wb") as f:
                 f.write(file.getbuffer())
                 m = MaterialInfo()

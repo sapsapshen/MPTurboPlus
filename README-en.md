@@ -114,21 +114,25 @@ materials, video subtitles, and video background music before synthesizing a hig
 
 Want to try MoneyPrinterTurbo without setting up a local environment? Run it directly in Google Colab!
 
-[![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/harry0703/MoneyPrinterTurbo/blob/main/docs/MoneyPrinterTurbo.ipynb)
+[![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/sapsapshen/MPTurboPlus/blob/main/docs/MoneyPrinterTurbo.ipynb)
 
 ### Windows
 
-The downloadable package is still the older `v1.2.6` bundled build. After downloading, run `update.bat` first to bring it up to the latest code.
+Install dependencies from this repository, then double-click `start.bat`. The launcher opens the WebUI in the browser (if the page is blank, use Chrome or Edge).
 
-Google Drive (v1.2.6): https://drive.google.com/file/d/1HsbzfT7XunkrCrHw5ncUjFX8XX4zAuUh/view?usp=sharing
-
-After downloading, it is recommended to **double-click** `update.bat` first to update to the **latest code**, then double-click `start.bat` to launch
-
-After launching, the browser will open automatically (if it opens blank, it is recommended to use **Chrome** or **Edge**)
+The upstream portable package `v1.2.6` is not this scene-aligned fork. Use the source checkout and `start.bat` instead of that bundle.
 
 ### Other Systems
 
-One-click startup packages have not been created yet. See the **Installation & Deployment** section below. It is recommended to use **docker** for deployment, which is more convenient.
+Linux and macOS can start both services after dependencies are installed:
+
+```shell
+chmod +x start.sh && ./start.sh
+```
+
+Windows can double-click `start.bat`. Both launchers start the API and WebUI, choose a free WebUI port through `start_helper.py`, and stop the API when the launcher exits.
+
+The older upstream `v1.2.6` portable package does not include this repository's scene-aligned pipeline. For this repo, install with `uv sync --frozen` and use `start.bat` or `start.sh`. Docker remains available when you want an isolated runtime.
 
 ## Installation & Deployment 📥
 
@@ -137,7 +141,7 @@ One-click startup packages have not been created yet. See the **Installation & D
 #### ① Clone the Project
 
 ```shell
-git clone https://github.com/harry0703/MoneyPrinterTurbo.git
+git clone https://github.com/sapsapshen/MPTurboPlus.git
 ```
 
 #### ② Modify the Configuration File
@@ -158,8 +162,8 @@ If you are using a Windows system, please refer to Microsoft's documentation:
 2. https://learn.microsoft.com/en-us/windows/wsl/tutorials/wsl-containers
 
 ```shell
-cd MoneyPrinterTurbo
-docker-compose up
+cd MPTurboPlus
+docker compose up
 ```
 
 > Note：The latest version of docker will automatically install docker compose in the form of a plug-in, and the start command is adjusted to `docker compose up `
@@ -172,6 +176,10 @@ Open your browser and visit http://127.0.0.1:8501
 
 Open your browser and visit http://127.0.0.1:8080/docs or http://127.0.0.1:8080/redoc
 
+`GET http://127.0.0.1:8080/ping` returns plain text `pong`.
+
+If generation raises an unexpected error, the task is marked failed (`state = -1`) and keeps its last progress plus an `error` string. Query `GET /api/v1/tasks/{task_id}` instead of waiting on a task that stays in processing. Known failures, such as script, voice, material, or final render errors, also store `error`.
+
 ### Manual Deployment 📦
 
 #### ① Create a Python Virtual Environment
@@ -179,8 +187,8 @@ Open your browser and visit http://127.0.0.1:8080/docs or http://127.0.0.1:8080/
 It is recommended to use [uv](https://docs.astral.sh/uv/) to manage the Python environment and dependencies, with Python `3.11` as the default runtime.
 
 ```shell
-git clone https://github.com/harry0703/MoneyPrinterTurbo.git
-cd MoneyPrinterTurbo
+git clone https://github.com/sapsapshen/MPTurboPlus.git
+cd MPTurboPlus
 uv python install 3.11
 uv sync --frozen
 ```
@@ -201,7 +209,15 @@ Notes:
 
 #### ② Launch the Web Interface 🌐
 
-Note that you need to execute the following commands in the `root directory` of the MoneyPrinterTurbo project
+Note that you need to execute the following commands in the root directory of the project.
+
+Run the unit tests with:
+
+```shell
+uv run python -m unittest discover -s test
+```
+
+Set `MPT_RUN_LIVE_TESTS=1` to include the Edge TTS and full local-render cases. GitHub Actions runs the default suite.
 
 ###### Windows
 
@@ -285,7 +301,9 @@ Currently, there are 2 ways to generate subtitles:
 - **edge**: Uses Edge TTS timestamps to align subtitles. Fast, no GPU required, works on any machine. Accuracy depends on the TTS timing signal — occasionally misaligns on complex sentences.
 - **whisper**: Runs `faster-whisper` locally to transcribe the generated audio and produce word-level timestamps. Slower (a few seconds to ~1 minute per clip on CPU depending on model size), requires downloading a model (~250 MB for `large-v3-turbo`, ~3 GB for `large-v3`), but produces more accurate subtitles regardless of TTS provider.
 
-You can switch between them by modifying the `subtitle_provider` in the `config.toml` configuration file
+You can switch between them by modifying the `subtitle_provider` in the `config.toml` configuration file.
+
+`whisper.device` and `whisper.compute_type` are case-insensitive. `device = "CPU"` is sent to faster-whisper as `cpu`.
 
 It is recommended to use `edge` mode, and switch to `whisper` mode if the quality of the subtitles generated is not
 satisfactory.
